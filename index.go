@@ -25,9 +25,8 @@ type Blob struct {
 	Version   uint64
 	IndexTime time.Time
 
-	Size       uint64
-	CreateTime time.Time
-	ModifyTime time.Time
+	Size    int64
+	ModTime time.Time
 
 	HashAlgorithm crypto.Hash
 
@@ -35,7 +34,7 @@ type Blob struct {
 	Hash []byte
 
 	// size of hashed blocks
-	HashBlockSize uint32
+	HashBlockSize int
 
 	// hashes of individual blocks
 	HashedBlocks [][]byte
@@ -51,8 +50,8 @@ func (b *Blob) Validate() error {
 	if strings.TrimSpace(b.Name) != b.Name {
 		return errors.New("invalid leading or trailing space in name")
 	}
-	if b.IndexTime.IsZero() || b.CreateTime.IsZero() || b.ModifyTime.IsZero() {
-		return errors.New("invalid zero index, create or modify time")
+	if b.IndexTime.IsZero() || b.ModTime.IsZero() {
+		return errors.New("invalid zero index or modify time")
 	}
 	// TODO: more checks
 	return nil
