@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto"
 	"io"
+	"log"
 	"os"
 	"time"
 
@@ -58,4 +59,57 @@ func HashAll(r io.Reader, algorithm crypto.Hash, blockSize int) (all []byte, blo
 	}
 	all, blocks = hasher.Finish()
 	return
+}
+
+type Indexer struct {
+	Index Index
+
+	Log *log.Logger
+}
+
+func (i *Indexer) IndexAllFiles(c <-chan *PathElem) {
+	for pe := range c {
+		if pe.Err != nil {
+			i.logf("ERROR: %v", pe.Err)
+			continue
+		}
+		i.index(pe)
+	}
+	i.logf("INFO: finished")
+}
+
+func (i *Indexer) logf(format string, x ...interface{}) {
+	if i.Log != nil {
+		i.Log.Printf(format, x...)
+	}
+}
+
+func (i *Indexer) index(pe *PathElem) {
+	previous, err := i.Index.LookupByName(pe.Path)
+	if err != nil {
+		i.logf("ERROR: index lookup failed: %v", err)
+		return
+	}
+	if previous != nil {
+		var size int64 = pe.Info.Size()
+		var mtime time.Time = pe.Info.ModTime()
+		if !previous.HasChanged(size, mtime) {
+			i.logf("INFO: index up to date for %q", pe.Path)
+			return
+		}
+	}
+
+	i.logf("INFO: indexing %q", pe.Path)
+
+	indexed, err := IndexFile(pe.Path)
+	if err != nil {
+		i.logf("ERROR: file indexing failed: %v", err)
+		return
+	}
+	if previous != nil {
+		indexed.Version = previous.Version + 1
+	}
+	if err := i.Index.Store(indexed); err != nil {
+		i.logf("ERROR: index store failed: %v", err)
+	}
 }

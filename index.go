@@ -40,6 +40,11 @@ type Blob struct {
 	HashedBlocks [][]byte
 }
 
+func (b *Blob) HasChanged(size int64, mtime time.Time) bool {
+	return b.Size != size ||
+		b.ModTime != mtime
+}
+
 func (b *Blob) Validate() error {
 	if b == nil {
 		return errors.New("invalid nil block")
