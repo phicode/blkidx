@@ -53,7 +53,23 @@ func (b *Blob) Validate() error {
 	if b.IndexTime.IsZero() || b.ModTime.IsZero() {
 		return errors.New("invalid zero index or modify time")
 	}
-	// TODO: more checks
+	if !b.HashAlgorithm.Available() {
+		return errors.New("invalid hash algorithm")
+	}
+	if b.HashBlockSize <= 0 {
+		return errors.New("invalid hash block size")
+	}
+	if b.Size < 0 {
+		return errors.New("invalid blob size")
+	}
+	if b.Size > 0 {
+		if len(b.Hash) != b.HashAlgorithm.Size() {
+			return errors.New("invalid hash length")
+		}
+		if len(b.HashedBlocks) < 1 {
+			return errors.New("invalid empty hashed blocks")
+		}
+	}
 	return nil
 }
 
