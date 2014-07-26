@@ -4,19 +4,23 @@ import (
 	"sync"
 )
 
-type MemoryIndex struct {
+type memoryIndex struct {
 	rwmu  sync.RWMutex
 	blobs map[string]*Blob
 }
 
-var _ Index = (*MemoryIndex)(nil)
+var _ Index = (*memoryIndex)(nil)
 
-func (m *MemoryIndex) Store(blob *Blob) error {
+func NewMemoryIndex() Index {
+	return &memoryIndex{
+		blobs: make(map[string]*Blob, 1024),
+	}
+}
+
+func (m *memoryIndex) Store(blob *Blob) error {
 	if err := blob.Validate(); err != nil {
 		return err
 	}
-	m.init()
-
 	m.rwmu.Lock()
 	defer m.rwmu.Unlock()
 
@@ -30,23 +34,9 @@ func (m *MemoryIndex) Store(blob *Blob) error {
 	return nil
 }
 
-func (m *MemoryIndex) LookupByName(name string) (*Blob, error) {
-	m.init()
-
+func (m *memoryIndex) LookupByName(name string) (*Blob, error) {
 	m.rwmu.RLock()
 	defer m.rwmu.RUnlock()
 
 	return m.blobs[name], nil
-}
-
-func (m *MemoryIndex) init() {
-	if m.blobs != nil {
-		return
-	}
-	m.rwmu.Lock()
-	defer m.rwmu.Unlock()
-	if m.blobs != nil {
-		return
-	}
-	m.blobs = make(map[string]*Blob)
 }
