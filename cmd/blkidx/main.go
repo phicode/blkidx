@@ -57,11 +57,7 @@ func main() {
 	}
 
 	c := WalkFiles(*flagRoot)
-	indexer.IndexAllFiles(c)
-
-	// TODO: remove double walking
-	c = WalkFiles(*flagRoot)
-	indexer.IndexAllFiles(c)
+	indexer.IndexAll(c)
 }
 
 func openDbIndex() (Index, io.Closer, error) {

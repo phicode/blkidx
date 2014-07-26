@@ -73,7 +73,7 @@ type Indexer struct {
 	wg sync.WaitGroup
 }
 
-func (i *Indexer) IndexAllFiles(c <-chan *PathElem) {
+func (i *Indexer) IndexAll(c <-chan *PathElem) {
 	if i.Concurrency < 1 {
 		i.Concurrency = 1
 	}
