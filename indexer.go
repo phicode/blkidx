@@ -115,7 +115,7 @@ func (i *Indexer) index(pe *PathElem) {
 			i.logf("INFO: index up to date for %q", pe.Path)
 			return
 		}
-		i.logf("INFO: file in index but changed, reindexing %q - %d %d %v %v", pe.Path, size, previous.Size, mtime, previous.ModTime)
+		i.logf("INFO: file in index but changed, reindexing %q", pe.Path)
 	}
 
 	i.logf("INFO: indexing %q", pe.Path)
