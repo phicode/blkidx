@@ -1,11 +1,9 @@
 package blkidx
 
 import (
-	"crypto"
-	"errors"
+	"sync"
+
 	"fmt"
-	"strings"
-	"time"
 )
 
 type Index interface {
@@ -20,75 +18,6 @@ type Index interface {
 	LookupByName(name string) (*Blob, error)
 }
 
-type Blob struct {
-	Name      string
-	Version   uint64
-	IndexTime time.Time
-
-	Size    int64
-	ModTime time.Time
-
-	HashAlgorithm crypto.Hash
-
-	// hash of the full blob
-	Hash []byte
-
-	// size of hashed blocks
-	HashBlockSize int
-
-	// hashes of individual blocks
-	HashedBlocks [][]byte
-}
-
-func (b *Blob) HasChanged(size int64, mtime time.Time) bool {
-	return b.Size != size ||
-		b.ModTime != mtime
-}
-
-func (b *Blob) Validate() error {
-	if b == nil {
-		return errors.New("invalid nil block")
-	}
-	if b.Name == "" {
-		return errors.New("invalid empty name")
-	}
-	if strings.TrimSpace(b.Name) != b.Name {
-		return errors.New("invalid leading or trailing space in name")
-	}
-	if b.IndexTime.IsZero() || b.ModTime.IsZero() {
-		return errors.New("invalid zero index or modify time")
-	}
-	if !b.HashAlgorithm.Available() {
-		return errors.New("invalid hash algorithm")
-	}
-	if b.HashBlockSize <= 0 {
-		return errors.New("invalid hash block size")
-	}
-	if b.Size < 0 {
-		return errors.New("invalid blob size")
-	}
-	if b.Size > 0 {
-		if len(b.Hash) != b.HashAlgorithm.Size() {
-			return errors.New("invalid hash length")
-		}
-		if len(b.HashedBlocks) < 1 {
-			return errors.New("invalid empty hashed blocks")
-		}
-	}
-	return nil
-}
-
-func (b *Blob) CheckOptimisticLock(update *Blob) error {
-	if update.Version != b.Version+1 {
-		return &OptimisticLockingError{
-			Name:          b.Name,
-			IndexVersion:  b.Version,
-			FailedVersion: update.Version,
-		}
-	}
-	return nil
-}
-
 type OptimisticLockingError struct {
 	Name          string
 	IndexVersion  uint64
@@ -100,4 +29,26 @@ var _ error = (*OptimisticLockingError)(nil)
 func (o *OptimisticLockingError) Error() string {
 	return fmt.Sprintf("optimistic locking error - index-version: %d - failed version: %d - blob: %q", //
 		o.IndexVersion, o.FailedVersion, o.Name)
+}
+
+type LockedIndex struct {
+	Backend Index
+
+	mu sync.Mutex
+}
+
+var _ Index = (*LockedIndex)(nil)
+
+func (i *LockedIndex) Store(blob *Blob) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	return i.Backend.Store(blob)
+}
+
+func (i *LockedIndex) LookupByName(name string) (*Blob, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	return i.Backend.LookupByName(name)
 }

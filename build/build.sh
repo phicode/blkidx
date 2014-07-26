@@ -8,6 +8,7 @@ cd "$base"
 
 root_package="bind.ch/blkidx"
 cmd_packages="blkidx"
+dependencies="github.com/mattn/go-sqlite3"
 
 go_get_flags="-v"
 install_flags=""
@@ -26,8 +27,15 @@ go get $go_get_flags github.com/axw/gocov/gocov
 go get $go_get_flags github.com/AlekSi/gocov-xml
 go get $go_get_flags gopkg.in/matm/v1/gocov-html
 
+echo "go-getting dependencies"
+for dep in $dependencies; do
+  go get $go_get_flags $dep
+done
+
 for pkg in $(go list "${root_package}/..."); do
+  go test -timeout=5s $pkg
   go test -timeout=5s -coverprofile=c.out $pkg
+  go install $pkg
   if [ -e c.out ]; then
     f=$(echo $pkg | tr '/' '_')
     json="coverage/json/${f}.json"

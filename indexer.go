@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	_ "crypto/sha256"
@@ -38,8 +39,8 @@ func IndexFile(name string) (blob *Blob, err error) {
 
 	blob = new(Blob)
 	blob.Name = name
-	blob.IndexTime = time.Now()
-	blob.ModTime = fileInfo.ModTime()
+	blob.IndexTime = time.Now().UTC()
+	blob.ModTime = fileInfo.ModTime().UTC()
 	blob.HashAlgorithm = DefaultHashAlgorithm
 	blob.HashBlockSize = DefaultHashBlockSize
 
@@ -53,6 +54,7 @@ func HashAll(r io.Reader, algorithm crypto.Hash, blockSize int) (all []byte, blo
 		hasher Hasher        = NewHasher(algorithm, blockSize)
 	)
 
+	//TODO: progress if file is larger then a certain size
 	n, err = io.Copy(hasher, bufrdr)
 	if err != nil {
 		return nil, nil, 0, err
@@ -65,9 +67,25 @@ type Indexer struct {
 	Index Index
 
 	Log *log.Logger
+
+	Concurrency int
+
+	wg sync.WaitGroup
 }
 
 func (i *Indexer) IndexAllFiles(c <-chan *PathElem) {
+	if i.Concurrency < 1 {
+		i.Concurrency = 1
+	}
+	for x := 0; x < i.Concurrency; x++ {
+		i.wg.Add(1)
+		go i.indexWorker(c)
+	}
+	i.wg.Wait()
+	i.logf("INFO: finished")
+}
+
+func (i *Indexer) indexWorker(c <-chan *PathElem) {
 	for pe := range c {
 		if pe.Err != nil {
 			i.logf("ERROR: %v", pe.Err)
@@ -75,7 +93,7 @@ func (i *Indexer) IndexAllFiles(c <-chan *PathElem) {
 		}
 		i.index(pe)
 	}
-	i.logf("INFO: finished")
+	i.wg.Done()
 }
 
 func (i *Indexer) logf(format string, x ...interface{}) {
@@ -97,6 +115,7 @@ func (i *Indexer) index(pe *PathElem) {
 			i.logf("INFO: index up to date for %q", pe.Path)
 			return
 		}
+		i.logf("INFO: file in index but changed, reindexing %q - %d %d %v %v", pe.Path, size, previous.Size, mtime, previous.ModTime)
 	}
 
 	i.logf("INFO: indexing %q", pe.Path)
