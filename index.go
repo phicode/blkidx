@@ -20,15 +20,14 @@ type Index interface {
 
 type OptimisticLockingError struct {
 	Name          string
-	IndexVersion  uint64
 	FailedVersion uint64
 }
 
 var _ error = (*OptimisticLockingError)(nil)
 
 func (o *OptimisticLockingError) Error() string {
-	return fmt.Sprintf("optimistic locking error - index-version: %d - failed version: %d - blob: %q", //
-		o.IndexVersion, o.FailedVersion, o.Name)
+	return fmt.Sprintf("optimistic locking error - version: %d already reached - blob: %q", //
+		o.FailedVersion, o.Name)
 }
 
 type LockedIndex struct {

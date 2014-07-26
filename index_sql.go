@@ -67,7 +67,7 @@ func (s *sqlIndex) Store(blob *Blob) error {
 		res, sqlErr = tx.Stmt(s.updateStmt).Exec(blob.IndexTime,
 			blob.Size, blob.ModTime, blob.HashAlgorithm,
 			sqlSB(blob.Hash), blob.HashBlockSize, sqlSSB(blob.HashedBlocks),
-			blob.Name, blob.Version)
+			blob.Name, blob.Version-1)
 	}
 	if sqlErr != nil {
 		tx.Rollback()
@@ -75,8 +75,10 @@ func (s *sqlIndex) Store(blob *Blob) error {
 	}
 	if x, _ := res.RowsAffected(); x != 1 {
 		tx.Rollback()
-		// TODO: optimistic locking
-		return fmt.Errorf("%s affected %d rows", action, x)
+		return &OptimisticLockingError{
+			Name:          blob.Name,
+			FailedVersion: blob.Version,
+		}
 	}
 	return tx.Commit()
 }
@@ -107,6 +109,43 @@ func (s *sqlIndex) LookupByName(name string) (*Blob, error) {
 	b.HashedBlocks = [][]byte(hashBlocks)
 	return b, nil
 }
+
+const (
+	sqlIndex_version = 1
+
+	sqlIndex_init = `
+	CREATE TABLE IF NOT EXISTS t_blobs (
+		name               TEXT     NOT NULL PRIMARY KEY,
+		version            INTEGER  NOT NULL,
+		index_time         DATETIME NOT NULL,
+		size               INTEGER  NOT NULL,
+		mod_time           DATETIME NOT NULL,
+		hash_algorithm     INTEGER  NOT NULL,
+		hash               TEXT     NOT NULL,
+		hash_block_size    INTEGER  NOT NULL,
+		hashed_blocks      TEXT     NOT NULL
+	)`
+
+	sqlIndex_fields = `
+	name, version, index_time,
+	size, mod_time, hash_algorithm,
+	hash, hash_block_size, hashed_blocks`
+
+	sqlIndex_insert = `INSERT INTO t_blobs (` + sqlIndex_fields + `) values (?,?,?,?,?,?,?,?,?)`
+
+	sqlIndex_update = `UPDATE t_blobs SET
+		index_time      = ?,
+		size            = ?,
+		mod_time        = ?,
+		hash_algorithm  = ?,
+		hash            = ?,
+		hash_block_size = ?,
+		hashed_blocks   = ?
+		WHERE
+		name = ? AND version = ?`
+
+	sqlIndex_lookup = `SELECT ` + sqlIndex_fields + ` FROM t_blobs WHERE name=?`
+)
 
 func initOrUpgradeDb(db *sql.DB) error {
 	_, err := db.Exec(sqlIndex_init)
@@ -158,40 +197,3 @@ func decodeSlice(b64 []byte) ([]byte, error) {
 	n, err := base64.StdEncoding.Decode(dst, b64)
 	return dst[:n], err
 }
-
-const (
-	sqlIndex_version = 1
-
-	sqlIndex_init = `
-	CREATE TABLE IF NOT EXISTS t_blobs (
-		name               TEXT     NOT NULL PRIMARY KEY,
-		version            INTEGER  NOT NULL,
-		index_time         DATETIME NOT NULL,
-		size               INTEGER  NOT NULL,
-		mod_time           DATETIME NOT NULL,
-		hash_algorithm     INTEGER  NOT NULL,
-		hash               TEXT     NOT NULL,
-		hash_block_size    INTEGER  NOT NULL,
-		hashed_blocks      TEXT     NOT NULL
-	)`
-
-	sqlIndex_fields = `
-	name, version, index_time,
-	size, mod_time, hash_algorithm,
-	hash, hash_block_size, hashed_blocks`
-
-	sqlIndex_insert = `INSERT INTO t_blobs (` + sqlIndex_fields + `) values (?,?,?,?,?,?,?,?,?)`
-
-	sqlIndex_update = `UPDATE t_blobs SET
-		index_time      = ?,
-		size            = ?,
-		mod_time        = ?,
-		hash_algorithm  = ?,
-		hash            = ?,
-		hash_block_size = ?,
-		hashed_blocks   = ?
-		WHERE
-		name = ? AND version = ?`
-
-	sqlIndex_lookup = `SELECT ` + sqlIndex_fields + ` FROM t_blobs WHERE name=?`
-)

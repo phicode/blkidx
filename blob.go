@@ -69,7 +69,6 @@ func (b *Blob) CheckOptimisticLock(update *Blob) error {
 	if update.Version != b.Version+1 {
 		return &OptimisticLockingError{
 			Name:          b.Name,
-			IndexVersion:  b.Version,
 			FailedVersion: update.Version,
 		}
 	}
