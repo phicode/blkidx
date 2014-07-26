@@ -30,7 +30,7 @@ func makeWalkFilesFunc(c chan *PathElem) filepath.WalkFunc {
 			c <- &PathElem{Err: err}
 			return nil
 		}
-		if info.IsDir() {
+		if !info.Mode().IsRegular() {
 			return nil
 		}
 		c <- &PathElem{
