@@ -82,7 +82,6 @@ func (i *Indexer) IndexAll(c <-chan *PathElem) {
 		go i.indexWorker(c)
 	}
 	i.wg.Wait()
-	i.logf("INFO: finished")
 }
 
 func (i *Indexer) indexWorker(c <-chan *PathElem) {
