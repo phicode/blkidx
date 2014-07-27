@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/user"
 	"runtime"
+	"strings"
 
 	. "bind.ch/blkidx"
 
@@ -127,10 +128,12 @@ func dups(index Index) {
 		fmt.Println("no duplicates found")
 		return
 	}
+
+	separator := strings.Repeat("-", 80)
 	for _, names := range namess {
-		fmt.Println("==============================================================")
+		fmt.Println(separator)
 		for _, name := range names {
-			fmt.Println("\t", name)
+			fmt.Println(name)
 		}
 	}
 }
