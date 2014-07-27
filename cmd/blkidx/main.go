@@ -114,7 +114,7 @@ func index(index Index, paths []string) {
 
 	for _, p := range paths {
 		c := WalkFiles(p)
-		indexer.IndexAll(p, c)
+		indexer.IndexAll(c)
 	}
 }
 
