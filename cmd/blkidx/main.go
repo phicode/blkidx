@@ -33,7 +33,7 @@ func init() {
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `
-%s [options] command <path>\n
+%s [options] command <path>
 
 commands:
 
