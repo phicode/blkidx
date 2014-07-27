@@ -53,7 +53,7 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 	if *flagDb == "" || len(args) == 0 {
-		errUsage()
+		errUsage(nil)
 	}
 
 	idx, dbCloser, err := openDbIndex(*flagDb)
@@ -70,15 +70,19 @@ func main() {
 		} else {
 			index(idx, args[1:])
 		}
-	//case "dups":
-	//	dups(idx)
+
+	case "dups":
+		dups(idx)
+
 	default:
-		flag.Usage()
-		os.Exit(1)
+		errUsage(dbCloser)
 	}
 }
 
-func errUsage() {
+func errUsage(c io.Closer) {
+	if c != nil {
+		c.Close()
+	}
 	flag.Usage()
 	os.Exit(1)
 }
