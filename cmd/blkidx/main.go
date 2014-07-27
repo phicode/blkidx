@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/user"
+	"runtime"
 
 	. "bind.ch/blkidx"
 
@@ -21,6 +22,8 @@ var (
 )
 
 func init() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	var db string
 	user, err := user.Current()
 	if err == nil {
