@@ -15,6 +15,9 @@ type sqlIndex struct {
 	updateStmt          *sql.Stmt
 	lookupStmt          *sql.Stmt
 	findEqualHashesStmt *sql.Stmt
+	allNamesStmt        *sql.Stmt
+	removeStmt          *sql.Stmt
+	countStmt           *sql.Stmt
 }
 
 var _ Index = (*sqlIndex)(nil)
@@ -41,6 +44,18 @@ func NewSqlIndex(db *sql.DB) (Index, error) {
 		return nil, err
 	}
 	idx.findEqualHashesStmt, err = db.Prepare(sqlIndex_findEqualHashes)
+	if err != nil {
+		return nil, err
+	}
+	idx.allNamesStmt, err = db.Prepare(sqlIndex_allNames)
+	if err != nil {
+		return nil, err
+	}
+	idx.removeStmt, err = db.Prepare(sqlIndex_remove)
+	if err != nil {
+		return nil, err
+	}
+	idx.countStmt, err = db.Prepare(sqlIndex_count)
 	if err != nil {
 		return nil, err
 	}
@@ -150,6 +165,64 @@ func (s *sqlIndex) FindEqualHashes() (rv []Names, err error) {
 	return
 }
 
+func (s *sqlIndex) AllNames() (rv Names, err error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.Stmt(s.allNamesStmt).Query()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var n string
+		err = rows.Scan(&n)
+		if err != nil {
+			return nil, err
+		}
+		rv = append(rv, n)
+	}
+	return
+}
+
+func (s *sqlIndex) Remove(names Names) (err error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	stmt := tx.Stmt(s.removeStmt)
+	for _, name := range names {
+		_, err = stmt.Exec(name)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	tx.Commit()
+	return nil
+}
+
+func (s *sqlIndex) Count() (int, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	var count int
+	row := tx.Stmt(s.countStmt).QueryRow()
+	err = row.Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 const (
 	sqlIndex_version = 1
 
@@ -195,6 +268,12 @@ const (
 		GROUP BY hash HAVING COUNT(*) > 1
 	)
 	ORDER BY hash`
+
+	sqlIndex_allNames = `SELECT name FROM t_blobs`
+
+	sqlIndex_remove = `DELETE FROM t_blobs WHERE name = ?`
+
+	sqlIndex_count = `SELECT COUNT(*) FROM t_blobs`
 )
 
 func initOrUpgradeDb(db *sql.DB) error {

@@ -1,7 +1,8 @@
-package blkidx
+package fs
 
 import (
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -12,12 +13,14 @@ type PathElem struct {
 	Info os.FileInfo
 }
 
-func WalkFiles(root string) <-chan *PathElem {
+func WalkFiles(paths Paths) <-chan *PathElem {
 	c := make(chan *PathElem)
 	fn := makeWalkFilesFunc(c)
 	go func() {
-		if err := filepath.Walk(root, fn); err != nil && err != io.EOF {
-			c <- &PathElem{Err: err}
+		for path, _ := range paths {
+			if err := filepath.Walk(path, fn); err != nil && err != io.EOF {
+				c <- &PathElem{Err: err}
+			}
 		}
 		close(c)
 	}()
@@ -39,4 +42,20 @@ func makeWalkFilesFunc(c chan *PathElem) filepath.WalkFunc {
 		}
 		return nil
 	}
+}
+
+func AggregateLogErrors(c <-chan *PathElem, l *log.Logger) Paths {
+	paths := make(Paths)
+
+	for pe := range c {
+		if pe.Err != nil {
+			if l != nil {
+				l.Printf("ERROR: %v", pe.Err)
+			}
+			continue
+		}
+		paths.Add(pe.Path)
+	}
+
+	return paths
 }

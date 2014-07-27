@@ -73,8 +73,35 @@ func (m *memoryIndex) FindEqualHashes() (rv []Names, err error) {
 			rv = append(rv, equal)
 		}
 	}
-
 	return
+}
+
+func (m *memoryIndex) AllNames() (Names, error) {
+	m.rwmu.RLock()
+	defer m.rwmu.RUnlock()
+
+	var rv Names = make(Names, 0, len(m.blobs))
+	for name, _ := range m.blobs {
+		rv = append(rv, name)
+	}
+	return rv, nil
+}
+
+func (m *memoryIndex) Remove(names Names) error {
+	m.rwmu.Lock()
+	defer m.rwmu.Unlock()
+
+	for _, name := range names {
+		delete(m.blobs, name)
+	}
+	return nil
+}
+
+func (m *memoryIndex) Count() (int, error) {
+	m.rwmu.RLock()
+	defer m.rwmu.RUnlock()
+
+	return len(m.blobs), nil
 }
 
 type hashToBlob struct {

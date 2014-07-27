@@ -1,9 +1,9 @@
 package blkidx
 
 import (
-	"sync"
-
 	"fmt"
+	"sort"
+	"sync"
 )
 
 type Index interface {
@@ -18,9 +18,17 @@ type Index interface {
 	LookupByName(name string) (*Blob, error)
 
 	FindEqualHashes() ([]Names, error)
+
+	AllNames() (Names, error)
+
+	Remove(names Names) error
+
+	Count() (int, error)
 }
 
 type Names []string
+
+func (n Names) Sort() { sort.Strings([]string(n)) }
 
 type OptimisticLockingError struct {
 	Name          string
@@ -61,4 +69,25 @@ func (i *LockedIndex) FindEqualHashes() ([]Names, error) {
 	defer i.mu.Unlock()
 
 	return i.Backend.FindEqualHashes()
+}
+
+func (i *LockedIndex) AllNames() (Names, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	return i.Backend.AllNames()
+}
+
+func (i *LockedIndex) Remove(names Names) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	return i.Backend.Remove(names)
+}
+
+func (i *LockedIndex) Count() (int, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	return i.Backend.Count()
 }

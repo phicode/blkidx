@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bind.ch/blkidx/fs"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -26,8 +27,7 @@ func init() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	var db string
-	user, err := user.Current()
-	if err == nil {
+	if user, err := user.Current(); err == nil {
 		db = user.HomeDir + string(os.PathSeparator) + ".blkidx.sqlite3"
 	}
 	flagDb = flag.String("db", db, "sqlite database file to store")
@@ -38,10 +38,20 @@ func init() {
 
 commands:
 
-  index [path...]      add (or update) a path to the index.
-                     an empty path mean.
+  index [path...]            add or update files to the index.
 
-  dups               show files with duplicate checksums
+  remove [path...]           remove files from the index.
+
+  remove-missing [path...]   remove files from the index which
+                             are also missing on the filesystem.
+
+  list                       list all files that are currently in the index.
+
+  list-missing [path...]     list only files that are in the index
+                             but not on the filesystem.
+
+  dups                       show all files in the index which
+                             have the same checksums.
 
 
 options:
@@ -54,38 +64,63 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 	if *flagDb == "" || len(args) == 0 {
-		errUsage(nil)
+		errUsage()
 	}
-
-	idx, dbCloser, err := openDbIndex(*flagDb)
+	found, err := run(args, *flagDb)
+	if !found {
+		errUsage()
+	}
 	if err != nil {
-		logger.Printf("failed to open the sqlite3 database: %v", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
-	}
-	defer dbCloser.Close()
-
-	switch args[0] {
-	case "index":
-		if len(args) == 1 {
-			index(idx, []string{"."})
-		} else {
-			index(idx, args[1:])
-		}
-
-	case "dups":
-		dups(idx)
-
-	default:
-		errUsage(dbCloser)
 	}
 }
 
-func errUsage(c io.Closer) {
-	if c != nil {
-		c.Close()
-	}
+func errUsage() {
 	flag.Usage()
 	os.Exit(1)
+}
+
+func run(args []string, dbUrl string) (found bool, err error) {
+	idx, dbCloser, err := openDbIndex(dbUrl)
+	if err != nil {
+		return true, fmt.Errorf("failed to open the sqlite3 database: %v", err)
+	}
+	defer dbCloser.Close()
+
+	var paths fs.Paths
+	if len(args) == 1 {
+		paths, err = fs.WorkingDirectory()
+	} else {
+		paths, err = fs.NewPaths(args[1:]...)
+	}
+	if err != nil {
+		return true, err
+	}
+
+	switch args[0] {
+	case "index":
+		index(idx, paths)
+
+	case "remove":
+		err = remove(idx, paths, nil)
+
+	case "remove-missing":
+		removeMissing(idx, paths)
+
+	case "list":
+		err = list(idx)
+
+	case "list-missing":
+		err = listMissing(idx, paths)
+
+	case "dups":
+		err = dups(idx)
+
+	default:
+		return false, nil
+	}
+	return true, err
 }
 
 func openDbIndex(dbUrl string) (Index, io.Closer, error) {
@@ -105,28 +140,112 @@ func openDbIndex(dbUrl string) (Index, io.Closer, error) {
 	return &LockedIndex{Backend: idx}, db, nil
 }
 
-func index(index Index, paths []string) {
+func index(idx Index, paths fs.Paths) {
 	var indexer = &Indexer{
-		Index:       index,
+		Index:       idx,
 		Log:         logger,
 		Concurrency: *flagConcurrency,
 	}
 
-	for _, p := range paths {
-		c := WalkFiles(p)
-		indexer.IndexAll(c)
-	}
+	indexer.IndexAll(fs.WalkFiles(paths))
 }
 
-func dups(index Index) {
-	namess, err := index.FindEqualHashes()
+//TODO: review
+func remove(idx Index, paths fs.Paths, exclude fs.Paths) error {
+	names, err := idx.AllNames()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "find duplicates failed:", err)
-		os.Exit(1)
+		return err
+	}
+
+	for path, _ := range paths {
+		var remove Names
+		for _, name := range names {
+			if strings.HasPrefix(name, path) {
+				if _, found := exclude[name]; !found {
+					remove = append(remove, name)
+				}
+			}
+		}
+		if len(remove) > 0 {
+			if err := idx.Remove(remove); err != nil {
+				return err
+			}
+		}
+	}
+
+	c, _ := idx.Count()
+	fmt.Println("files removed:", len(names)-c, "remaining:", c)
+	return nil
+}
+
+func removeMissing(idx Index, paths fs.Paths) {
+	var exclude fs.Paths = findAllFiles(paths)
+	remove(idx, paths, exclude)
+}
+
+func list(idx Index) error {
+	names, err := idx.AllNames()
+	if err != nil {
+		return err
+	}
+	names.Sort()
+
+	for _, name := range names {
+		fmt.Println(name)
+	}
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "files listed:", len(names))
+	return nil
+}
+
+// TODO: review
+func listMissing(idx Index, paths fs.Paths) error {
+	names, err := getMissing(idx, paths, findAllFiles(paths))
+	if err != nil {
+		return err
+	}
+	var ns Names
+	for n, _ := range names {
+		ns = append(ns, n)
+	}
+	ns.Sort()
+	for _, name := range ns {
+		fmt.Println(name)
+	}
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "files missing:", len(ns))
+	return nil
+}
+
+// TODO: review
+func getMissing(idx Index, paths fs.Paths, present fs.Paths) (fs.Paths, error) {
+	names, err := idx.AllNames()
+	if err != nil {
+		return nil, err
+	}
+
+	missing := make(fs.Paths)
+	for path, _ := range paths {
+		for _, name := range names {
+			if strings.HasPrefix(name, path) {
+				if _, found := present[name]; !found {
+					missing[name] = struct{}{}
+				}
+			}
+		}
+	}
+
+	return missing, nil
+}
+
+func dups(idx Index) error {
+	namess, err := idx.FindEqualHashes()
+	if err != nil {
+		return fmt.Errorf("find duplicates failed:", err)
 	}
 	if len(namess) == 0 {
 		fmt.Println("no duplicates found")
-		return
+		return nil
 	}
 
 	separator := strings.Repeat("-", 80)
@@ -136,4 +255,10 @@ func dups(index Index) {
 			fmt.Println(name)
 		}
 	}
+	return nil
+}
+
+func findAllFiles(paths fs.Paths) fs.Paths {
+	c := fs.WalkFiles(paths)
+	return fs.AggregateLogErrors(c, logger)
 }

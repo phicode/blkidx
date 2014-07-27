@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"bind.ch/blkidx/fs"
+
 	_ "crypto/sha1"
 	_ "crypto/sha256"
 	_ "crypto/sha512"
@@ -82,7 +84,7 @@ type Indexer struct {
 	wg sync.WaitGroup
 }
 
-func (i *Indexer) IndexAll(c <-chan *PathElem) {
+func (i *Indexer) IndexAll(c <-chan *fs.PathElem) {
 	if i.Concurrency < 1 {
 		i.Concurrency = 1
 	}
@@ -93,7 +95,7 @@ func (i *Indexer) IndexAll(c <-chan *PathElem) {
 	i.wg.Wait()
 }
 
-func (i *Indexer) indexWorker(c <-chan *PathElem) {
+func (i *Indexer) indexWorker(c <-chan *fs.PathElem) {
 	for pe := range c {
 		if pe.Err != nil {
 			i.logf("ERROR: %v", pe.Err)
@@ -110,7 +112,7 @@ func (i *Indexer) logf(format string, x ...interface{}) {
 	}
 }
 
-func (i *Indexer) index(pe *PathElem) {
+func (i *Indexer) index(pe *fs.PathElem) {
 	previous, err := i.Index.LookupByName(pe.Path)
 	if err != nil {
 		i.logf("ERROR: index lookup failed: %v", err)
