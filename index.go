@@ -16,7 +16,11 @@ type Index interface {
 	// blob lookup by name. if no blob by a certain name exists "nil, nil" is returned.
 	// the error return value is indicative of problems with the underlying storage strategy.
 	LookupByName(name string) (*Blob, error)
+
+	FindEqualHashes() ([]Names, error)
 }
+
+type Names []string
 
 type OptimisticLockingError struct {
 	Name          string
@@ -50,4 +54,11 @@ func (i *LockedIndex) LookupByName(name string) (*Blob, error) {
 	defer i.mu.Unlock()
 
 	return i.Backend.LookupByName(name)
+}
+
+func (i *LockedIndex) FindEqualHashes() ([]Names, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	return i.Backend.FindEqualHashes()
 }

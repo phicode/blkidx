@@ -11,9 +11,10 @@ import (
 type sqlIndex struct {
 	db *sql.DB
 
-	insertStmt *sql.Stmt
-	updateStmt *sql.Stmt
-	lookupStmt *sql.Stmt
+	insertStmt          *sql.Stmt
+	updateStmt          *sql.Stmt
+	lookupStmt          *sql.Stmt
+	findEqualHashesStmt *sql.Stmt
 }
 
 var _ Index = (*sqlIndex)(nil)
@@ -36,6 +37,10 @@ func NewSqlIndex(db *sql.DB) (Index, error) {
 		return nil, err
 	}
 	idx.lookupStmt, err = db.Prepare(sqlIndex_lookup)
+	if err != nil {
+		return nil, err
+	}
+	idx.findEqualHashesStmt, err = db.Prepare(sqlIndex_findEqualHashes)
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +115,41 @@ func (s *sqlIndex) LookupByName(name string) (*Blob, error) {
 	return b, nil
 }
 
+func (s *sqlIndex) FindEqualHashes() (rv []Names, err error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.Stmt(s.findEqualHashesStmt).Query()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var currentHash string
+	var equal Names
+	for rows.Next() {
+		var h, n string
+		err = rows.Scan(&h, &n)
+		if err != nil {
+			return nil, err
+		}
+		if currentHash == "" || currentHash == h {
+			equal = append(equal, n)
+		} else {
+			rv = append(rv, equal)
+			equal = append(Names(nil), n) // new equal slice
+		}
+		currentHash = h
+	}
+	if len(equal) > 0 {
+		rv = append(rv, equal)
+	}
+	return
+}
+
 const (
 	sqlIndex_version = 1
 
@@ -145,6 +185,16 @@ const (
 		name = ? AND version = ?`
 
 	sqlIndex_lookup = `SELECT ` + sqlIndex_fields + ` FROM t_blobs WHERE name=?`
+
+	sqlIndex_findEqualHashes = `
+	SELECT hash, name
+	FROM t_blobs
+	WHERE hash IN (
+		SELECT hash
+		FROM t_blobs
+		GROUP BY hash HAVING COUNT(*) > 1
+	)
+	ORDER BY hash`
 )
 
 func initOrUpgradeDb(db *sql.DB) error {

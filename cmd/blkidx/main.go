@@ -109,10 +109,24 @@ func index(index Index, paths []string) {
 
 	for _, p := range paths {
 		c := WalkFiles(p)
-		indexer.IndexAll(c)
+		indexer.IndexAll(p, c)
 	}
 }
 
-//func dups(index Index) {
-//	var blobs []*Blob = index.FindDuplicateHashes()
-//}
+func dups(index Index) {
+	namess, err := index.FindEqualHashes()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "find duplicates failed:", err)
+		os.Exit(1)
+	}
+	if len(namess) == 0 {
+		fmt.Println("no duplicates found")
+		return
+	}
+	for _, names := range namess {
+		fmt.Println("==============================================================")
+		for _, name := range names {
+			fmt.Println("\t", name)
+		}
+	}
+}
