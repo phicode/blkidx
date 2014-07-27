@@ -43,7 +43,7 @@ func (m *memoryIndex) LookupByName(name string) (*Blob, error) {
 	return m.blobs[name], nil
 }
 
-func (m *memoryIndex) FindEqualHashes() (rv []Names, err error) {
+func (m *memoryIndex) FindEqualHashes() (rv []EqualsBlobs, err error) {
 	m.rwmu.RLock()
 	defer m.rwmu.RUnlock()
 
@@ -52,22 +52,23 @@ func (m *memoryIndex) FindEqualHashes() (rv []Names, err error) {
 	}
 
 	// TODO: measure/profile and maybe implement a proper algorithm
-	var all []hashToBlob = make([]hashToBlob, 0, len(m.blobs))
+	var all []*Blob = make([]*Blob, 0, len(m.blobs))
 
 	for _, blob := range m.blobs {
-		all = append(all, hashToBlob{hash: blob.Hash, name: blob.Name})
+		all = append(all, blob)
 	}
 
-	sort.Sort(compareByHash(all))
+	sort.Sort(byHash(all))
 
 	i := 0
 	for i+1 < len(all) {
-		var equal Names
-		if bytes.Equal(all[i].hash, all[i+1].hash) {
-			equal = append(equal, all[i].name, all[i+1].name)
+		var equal EqualsBlobs
+		if all[i].EqualHash(all[i+1]) {
+			equal.Append(all[i])
+			equal.Append(all[i+1])
 			i++
-			for i+1 < len(all) && bytes.Equal(all[i].hash, all[i+1].hash) {
-				equal = append(equal, all[i+1].name)
+			for i+1 < len(all) && all[i].EqualHash(all[i+1]) {
+				equal.Append(all[i+1])
 				i++
 			}
 			rv = append(rv, equal)
@@ -104,15 +105,10 @@ func (m *memoryIndex) Count() (int, error) {
 	return len(m.blobs), nil
 }
 
-type hashToBlob struct {
-	hash []byte
-	name string
-}
+type byHash []*Blob
 
-type compareByHash []hashToBlob
+var _ sort.Interface = (*byHash)(nil)
 
-var _ sort.Interface = (*compareByHash)(nil)
-
-func (s compareByHash) Len() int           { return len(s) }
-func (s compareByHash) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-func (s compareByHash) Less(i, j int) bool { return bytes.Compare(s[i].hash, s[j].hash) <= 0 }
+func (s byHash) Len() int           { return len(s) }
+func (s byHash) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s byHash) Less(i, j int) bool { return bytes.Compare(s[i].Hash, s[j].Hash) <= 0 }

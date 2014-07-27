@@ -239,26 +239,59 @@ func getMissing(idx Index, paths fs.Paths, present fs.Paths) (fs.Paths, error) {
 }
 
 func dups(idx Index) error {
-	namess, err := idx.FindEqualHashes()
+	equalBlobs, err := idx.FindEqualHashes()
 	if err != nil {
 		return fmt.Errorf("find duplicates failed:", err)
 	}
-	if len(namess) == 0 {
+	if len(equalBlobs) == 0 {
 		fmt.Println("no duplicates found")
 		return nil
 	}
 
+	var savings int64
 	separator := strings.Repeat("-", 80)
-	for _, names := range namess {
+	for _, equal := range equalBlobs {
 		fmt.Println(separator)
-		for _, name := range names {
+		for _, name := range equal.Names {
 			fmt.Println(name)
 		}
+		savings += (equal.Size * (int64(len(equal.Names) - 1)))
 	}
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "removing all duplicates would save", sizePretty(savings))
 	return nil
 }
 
 func findAllFiles(paths fs.Paths) fs.Paths {
 	c := fs.WalkFiles(paths)
 	return fs.AggregateLogErrors(c, logger)
+}
+
+func sizePretty(s int64) string {
+	var o order = orders[0]
+	if s < o.v {
+		return fmt.Sprintf("%d bytes", s)
+	}
+	for _, x := range orders {
+		if s < x.v {
+			break
+		}
+		o = x
+	}
+	return fmt.Sprintf("%.3f %s", float64(s)/float64(o.v), o.s)
+}
+
+type order struct {
+	v int64
+	s string
+}
+
+var orders = []order{
+	{1 << 10, "KiB"},
+	{1 << 20, "MiB"},
+	{1 << 30, "GiB"},
+	{1 << 40, "TiB"},
+	{1 << 50, "PiB"},
+	{1 << 60, "EiB"},
 }

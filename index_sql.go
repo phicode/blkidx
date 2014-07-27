@@ -130,7 +130,7 @@ func (s *sqlIndex) LookupByName(name string) (*Blob, error) {
 	return b, nil
 }
 
-func (s *sqlIndex) FindEqualHashes() (rv []Names, err error) {
+func (s *sqlIndex) FindEqualHashes() (rv []EqualsBlobs, err error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -144,22 +144,24 @@ func (s *sqlIndex) FindEqualHashes() (rv []Names, err error) {
 	defer rows.Close()
 
 	var currentHash string
-	var equal Names
+	var equal EqualsBlobs
 	for rows.Next() {
 		var h, n string
-		err = rows.Scan(&h, &n)
+		var size int64
+		err = rows.Scan(&h, &n, &size)
 		if err != nil {
 			return nil, err
 		}
 		if currentHash == "" || currentHash == h {
-			equal = append(equal, n)
+			equal.AppendRaw(n, size)
 		} else {
 			rv = append(rv, equal)
-			equal = append(Names(nil), n) // new equal slice
+			equal = EqualsBlobs{} // reset
+			equal.AppendRaw(n, size)
 		}
 		currentHash = h
 	}
-	if len(equal) > 0 {
+	if len(equal.Names) > 0 {
 		rv = append(rv, equal)
 	}
 	return
@@ -260,7 +262,7 @@ const (
 	sqlIndex_lookup = `SELECT ` + sqlIndex_fields + ` FROM t_blobs WHERE name=?`
 
 	sqlIndex_findEqualHashes = `
-	SELECT hash, name
+	SELECT hash, name, size
 	FROM t_blobs
 	WHERE hash IN (
 		SELECT hash

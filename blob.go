@@ -1,6 +1,7 @@
 package blkidx
 
 import (
+	"bytes"
 	"crypto"
 	"errors"
 	"strings"
@@ -73,4 +74,8 @@ func (b *Blob) CheckOptimisticLock(update *Blob) error {
 		}
 	}
 	return nil
+}
+
+func (b *Blob) EqualHash(other *Blob) bool {
+	return bytes.Equal(b.Hash, other.Hash)
 }
