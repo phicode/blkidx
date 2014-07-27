@@ -9,11 +9,15 @@ import (
 	"sync"
 	"time"
 
+	_ "crypto/sha1"
 	_ "crypto/sha256"
+	_ "crypto/sha512"
 )
 
+//TODO: rename all block-> blubblubsizes => hash algorithms already occupy the "block size" namespace
+
 var (
-	DefaultHashAlgorithm crypto.Hash = crypto.SHA256
+	DefaultHashAlgorithm crypto.Hash = crypto.SHA1
 	DefaultHashBlockSize int         = 64 << 20
 )
 
@@ -23,7 +27,12 @@ func init() {
 	}
 }
 
-func IndexFile(name string) (blob *Blob, err error) {
+type IndexConfig struct {
+	HashAlgorithm crypto.Hash
+	BlockSizes    int
+}
+
+func IndexFile(name string, config IndexConfig) (blob *Blob, err error) {
 	var file *os.File
 	file, err = os.Open(name)
 	if err != nil {
@@ -41,8 +50,8 @@ func IndexFile(name string) (blob *Blob, err error) {
 	blob.Name = name
 	blob.IndexTime = time.Now().UTC()
 	blob.ModTime = fileInfo.ModTime().UTC()
-	blob.HashAlgorithm = DefaultHashAlgorithm
-	blob.HashBlockSize = DefaultHashBlockSize
+	blob.HashAlgorithm = config.HashAlgorithm
+	blob.HashBlockSize = config.BlockSizes
 
 	blob.Hash, blob.HashedBlocks, blob.Size, err = HashAll(file, blob.HashAlgorithm, blob.HashBlockSize)
 	return
@@ -107,11 +116,12 @@ func (i *Indexer) index(pe *PathElem) {
 		i.logf("ERROR: index lookup failed: %v", err)
 		return
 	}
+
 	if previous != nil {
 		var size int64 = pe.Info.Size()
 		var mtime time.Time = pe.Info.ModTime()
 		if !previous.HasChanged(size, mtime) {
-			i.logf("INFO: index up to date for %q", pe.Path)
+			//i.logf("INFO: index up to date for %q", pe.Path)
 			return
 		}
 		i.logf("INFO: file in index but changed, reindexing %q", pe.Path)
@@ -119,7 +129,7 @@ func (i *Indexer) index(pe *PathElem) {
 
 	i.logf("INFO: indexing %q", pe.Path)
 
-	indexed, err := IndexFile(pe.Path)
+	indexed, err := IndexFile(pe.Path, genConfig(previous))
 	if err != nil {
 		i.logf("ERROR: file indexing failed: %v", err)
 		return
@@ -129,5 +139,18 @@ func (i *Indexer) index(pe *PathElem) {
 	}
 	if err := i.Index.Store(indexed); err != nil {
 		i.logf("ERROR: index store failed: %v", err)
+	}
+}
+
+func genConfig(previous *Blob) IndexConfig {
+	if previous == nil {
+		return IndexConfig{
+			HashAlgorithm: DefaultHashAlgorithm,
+			BlockSizes:    DefaultHashBlockSize,
+		}
+	}
+	return IndexConfig{
+		HashAlgorithm: previous.HashAlgorithm,
+		BlockSizes:    previous.HashBlockSize,
 	}
 }
