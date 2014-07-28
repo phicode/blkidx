@@ -2,6 +2,7 @@ package main
 
 import (
 	"bind.ch/blkidx/fs"
+	"bufio"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -10,12 +11,15 @@ import (
 	"os"
 	"os/user"
 	"runtime"
+	"strconv"
 	"strings"
 
 	. "bind.ch/blkidx"
 
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// TODO: paths for dups and rm-dups
 
 var (
 	flagDb          *string
@@ -52,6 +56,8 @@ commands:
 
   dups                       show all files in the index which
                              have the same checksums.
+
+  rm-dups                    interactive duplicate removal.
 
 
 options:
@@ -115,7 +121,10 @@ func run(args []string, dbUrl string) (found bool, err error) {
 		err = listMissing(idx, paths)
 
 	case "dups":
-		err = dups(idx)
+		err = dups(idx, false)
+
+	case "rm-dups":
+		err = dups(idx, true)
 
 	default:
 		return false, nil
@@ -238,7 +247,7 @@ func getMissing(idx Index, paths fs.Paths, present fs.Paths) (fs.Paths, error) {
 	return missing, nil
 }
 
-func dups(idx Index) error {
+func dups(idx Index, rm bool) error {
 	equalBlobs, err := idx.FindEqualHashes()
 	if err != nil {
 		return fmt.Errorf("find duplicates failed:", err)
@@ -252,15 +261,76 @@ func dups(idx Index) error {
 	separator := strings.Repeat("-", 80)
 	for _, equal := range equalBlobs {
 		fmt.Println(separator)
-		for _, name := range equal.Names {
-			fmt.Println(name)
+		for i, name := range equal.Names {
+			fmt.Printf("%d - %s\n", (i + 1), name)
 		}
-		savings += (equal.Size * (int64(len(equal.Names) - 1)))
+
+		if rm {
+			n, err := askRemove(idx, equal)
+			if err != nil {
+				return err
+			}
+			savings += equal.Size * int64(n)
+		} else {
+			savings += (equal.Size * (int64(len(equal.Names) - 1)))
+		}
+	}
+	fmt.Fprintln(os.Stderr)
+	if rm {
+		fmt.Fprintln(os.Stderr, "removed", sizePretty(savings))
+	} else {
+		fmt.Fprintln(os.Stderr, "removing all duplicates would save", sizePretty(savings))
+	}
+	return nil
+}
+
+func askRemove(idx Index, equal EqualsBlobs) (int, error) {
+	r := bufio.NewReader(os.Stdin)
+
+	fmt.Println(`enter space-separated file indexes to delete or enter to delete-nothing
+!!! this really deleted the file !!!`)
+	indexes, err := readIntFieldsLine(r, -1)
+	if err != nil {
+		return 0, err
+	}
+	if len(indexes) == 0 {
+		return 0, nil
+	}
+	for _, index := range indexes {
+		if index >= 0 && index < len(equal.Names) {
+			file := equal.Names[index]
+			fmt.Println("deleting", file)
+			if err := os.Remove(file); err != nil {
+				return 0, err // TODO: still report how much was already saved
+			}
+			var deleted Names = Names{file}
+			if err := idx.Remove(deleted); err != nil {
+				return 0, fmt.Errorf("file removed but still in index due do: %v", err) // TODO: same as above
+			}
+		}
 	}
 
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "removing all duplicates would save", sizePretty(savings))
-	return nil
+	return len(indexes), nil
+}
+
+func readIntFieldsLine(r *bufio.Reader, offset int) ([]int, error) {
+	line, err := r.ReadString('\n')
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(line) == "" {
+		return nil, nil
+	}
+	parts := strings.Fields(line)
+	var indexes []int
+	for _, p := range parts {
+		index, err := strconv.Atoi(p)
+		if err != nil {
+			return nil, err
+		}
+		indexes = append(indexes, index+offset)
+	}
+	return indexes, nil
 }
 
 func findAllFiles(paths fs.Paths) fs.Paths {
