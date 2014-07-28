@@ -33,37 +33,50 @@ func (b *Blob) HasChanged(size int64, mtime time.Time) bool {
 		b.ModTime.UTC() != mtime.UTC()
 }
 
+var (
+	blobErrNil        = errors.New("invalid nil block")
+	blobErrEmptyName  = errors.New("invalid empty name")
+	blobErrSpaceName  = errors.New("invalid leading or trailing space in name")
+	blobErrZeroIdx    = errors.New("invalid zero index time")
+	blobErrZeroMod    = errors.New("invalid zero modify time")
+	blobErrHashAlg    = errors.New("invalid hash algorithm")
+	blobErrBlkSize    = errors.New("invalid hash block size")
+	blobErrSize       = errors.New("invalid blob size")
+	blobErrHashLen    = errors.New("invalid hash length")
+	blobErrBlkHashLen = errors.New("invalid empty hashed blocks")
+)
+
 func (b *Blob) Validate() error {
 	if b == nil {
-		return errors.New("invalid nil block")
+		return blobErrNil
 	}
 	if b.Name == "" {
-		return errors.New("invalid empty name")
+		return blobErrEmptyName
 	}
 	if strings.TrimSpace(b.Name) != b.Name {
-		return errors.New("invalid leading or trailing space in name")
+		return blobErrSpaceName
 	}
 	if b.IndexTime.IsZero() {
-		return errors.New("invalid zero index time")
+		return blobErrZeroIdx
 	}
 	if b.ModTime.IsZero() {
-		return errors.New("invalid zero modify time")
+		return blobErrZeroMod
 	}
 	if !b.HashAlgorithm.Available() {
-		return errors.New("invalid hash algorithm")
+		return blobErrHashAlg
 	}
 	if b.HashBlockSize <= 0 {
-		return errors.New("invalid hash block size")
+		return blobErrBlkSize
 	}
 	if b.Size < 0 {
-		return errors.New("invalid blob size")
+		return blobErrSize
 	}
 	if b.Size > 0 {
 		if len(b.Hash) != b.HashAlgorithm.Size() {
-			return errors.New("invalid hash length")
+			return blobErrHashLen
 		}
 		if len(b.HashedBlocks) < 1 {
-			return errors.New("invalid empty hashed blocks")
+			return blobErrBlkHashLen
 		}
 	}
 	return nil

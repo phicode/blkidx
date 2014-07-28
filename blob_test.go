@@ -1,36 +1,35 @@
 package blkidx
 
 import (
-	"strings"
 	"testing"
 	"time"
 )
 
 func TestBlobValidate(t *testing.T) {
 	var blob *Blob = nil
-	verifyPartialError(t, blob.Validate(), "nil")
+	verifyBlobError(t, blob.Validate(), blobErrNil)
 
 	blob = new(Blob)
-	verifyPartialError(t, blob.Validate(), "empty name")
+	verifyBlobError(t, blob.Validate(), blobErrEmptyName)
 
 	blob.Name = " asdf "
-	verifyPartialError(t, blob.Validate(), "space")
+	verifyBlobError(t, blob.Validate(), blobErrSpaceName)
 	blob.Name = "asdf"
 
-	verifyPartialError(t, blob.Validate(), "index time")
+	verifyBlobError(t, blob.Validate(), blobErrZeroIdx)
 	blob.IndexTime = time.Now()
 
-	verifyPartialError(t, blob.Validate(), "modify time")
+	verifyBlobError(t, blob.Validate(), blobErrZeroMod)
 	blob.ModTime = time.Now()
 
-	verifyPartialError(t, blob.Validate(), "algorithm")
+	verifyBlobError(t, blob.Validate(), blobErrHashAlg)
 	blob.HashAlgorithm = DefaultHashAlgorithm
 
-	verifyPartialError(t, blob.Validate(), "block size")
+	verifyBlobError(t, blob.Validate(), blobErrBlkSize)
 	blob.HashBlockSize = 1
 
 	blob.Size = -1
-	verifyPartialError(t, blob.Validate(), "blob size")
+	verifyBlobError(t, blob.Validate(), blobErrSize)
 
 	blob.Size = 0
 	if blob.Validate() != nil {
@@ -38,10 +37,10 @@ func TestBlobValidate(t *testing.T) {
 	}
 
 	blob.Size = 1
-	verifyPartialError(t, blob.Validate(), "invalid hash length")
+	verifyBlobError(t, blob.Validate(), blobErrHashLen)
 	blob.Hash = make([]byte, blob.HashAlgorithm.Size())
 
-	verifyPartialError(t, blob.Validate(), "empty hashed block")
+	verifyBlobError(t, blob.Validate(), blobErrBlkHashLen)
 	blob.HashedBlocks = [][]byte{blob.Hash}
 
 	if blob.Validate() != nil {
@@ -49,13 +48,13 @@ func TestBlobValidate(t *testing.T) {
 	}
 }
 
-func verifyPartialError(t *testing.T, err error, part string) {
+func verifyBlobError(t *testing.T, err error, expected error) {
 	if err == nil {
-		t.Error("expected error that contains:", part)
+		t.Error("got nil, expected:", expected)
 		return
 	}
-	if !strings.Contains(err.Error(), part) {
-		t.Error("error not found:", part, "in:", err.Error())
+	if err != expected {
+		t.Errorf("got %v, expected: %v", err, expected)
 	}
 }
 
