@@ -266,47 +266,51 @@ func dups(idx Index, rm bool) error {
 		}
 
 		if rm {
-			if err = askRemove(idx, equal); err != nil {
+			n, err := askRemove(idx, equal)
+			if err != nil {
 				return err
 			}
+			savings += equal.Size * int64(n)
+		} else {
+			savings += (equal.Size * (int64(len(equal.Names) - 1)))
 		}
-
-		savings += (equal.Size * (int64(len(equal.Names) - 1)))
 	}
-	if !rm {
-		fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr)
+	if rm {
+		fmt.Fprintln(os.Stderr, "removed", sizePretty(savings))
+	} else {
 		fmt.Fprintln(os.Stderr, "removing all duplicates would save", sizePretty(savings))
 	}
 	return nil
 }
 
-func askRemove(idx Index, equal EqualsBlobs) error {
+func askRemove(idx Index, equal EqualsBlobs) (int, error) {
 	r := bufio.NewReader(os.Stdin)
 
 	fmt.Println(`enter space-separated file indexes to delete or enter to delete-nothing
 !!! this really deleted the file !!!`)
 	indexes, err := readIntFieldsLine(r, -1)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if len(indexes) == 0 {
-		return nil
+		return 0, nil
 	}
 	for _, index := range indexes {
 		if index >= 0 && index < len(equal.Names) {
 			file := equal.Names[index]
 			fmt.Println("deleting", file)
 			if err := os.Remove(file); err != nil {
-				return err
+				return 0, err // TODO: still report how much was already saved
 			}
 			var deleted Names = Names{file}
 			if err := idx.Remove(deleted); err != nil {
-				return fmt.Errorf("file removed but still in index due do: %v", err)
+				return 0, fmt.Errorf("file removed but still in index due do: %v", err) // TODO: same as above
 			}
 		}
 	}
 
-	return nil
+	return len(indexes), nil
 }
 
 func readIntFieldsLine(r *bufio.Reader, offset int) ([]int, error) {
