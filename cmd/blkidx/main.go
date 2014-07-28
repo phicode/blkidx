@@ -11,12 +11,15 @@ import (
 	"os"
 	"os/user"
 	"runtime"
+	"strconv"
 	"strings"
 
 	. "bind.ch/blkidx"
 
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// TODO: paths for dups and rm-dups
 
 var (
 	flagDb          *string
@@ -259,7 +262,7 @@ func dups(idx Index, rm bool) error {
 	for _, equal := range equalBlobs {
 		fmt.Println(separator)
 		for i, name := range equal.Names {
-			fmt.Printf("%d - %s", (i + 1), name)
+			fmt.Printf("%d - %s\n", (i + 1), name)
 		}
 
 		if rm {
@@ -280,14 +283,50 @@ func dups(idx Index, rm bool) error {
 func askRemove(idx Index, equal EqualsBlobs) error {
 	r := bufio.NewReader(os.Stdin)
 
-	//TODO
-	//idx.Remove(names)
+	fmt.Println(`enter space-separated file indexes to delete or enter to delete-nothing
+!!! this really deleted the file !!!`)
+	indexes, err := readIntFieldsLine(r, -1)
+	if err != nil {
+		return err
+	}
+	if len(indexes) == 0 {
+		return nil
+	}
+	for _, index := range indexes {
+		if index >= 0 && index < len(equal.Names) {
+			file := equal.Names[index]
+			fmt.Println("deleting", file)
+			if err := os.Remove(file); err != nil {
+				return err
+			}
+			var deleted Names = Names{file}
+			if err := idx.Remove(deleted); err != nil {
+				return fmt.Errorf("file removed but still in index due do: %v", err)
+			}
+		}
+	}
 
 	return nil
 }
 
-func readIndexes(r bufio.Reader) []int {
-	io.readl
+func readIntFieldsLine(r *bufio.Reader, offset int) ([]int, error) {
+	line, err := r.ReadString('\n')
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(line) == "" {
+		return nil, nil
+	}
+	parts := strings.Fields(line)
+	var indexes []int
+	for _, p := range parts {
+		index, err := strconv.Atoi(p)
+		if err != nil {
+			return nil, err
+		}
+		indexes = append(indexes, index+offset)
+	}
+	return indexes, nil
 }
 
 func findAllFiles(paths fs.Paths) fs.Paths {
