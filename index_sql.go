@@ -267,6 +267,7 @@ const (
 	WHERE hash IN (
 		SELECT hash
 		FROM t_blobs
+		WHERE SIZE > 0
 		GROUP BY hash HAVING COUNT(*) > 1
 	)
 	ORDER BY hash`

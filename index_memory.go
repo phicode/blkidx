@@ -55,7 +55,9 @@ func (m *memoryIndex) FindEqualHashes() (rv []EqualBlobs, err error) {
 	var all []*Blob = make([]*Blob, 0, len(m.blobs))
 
 	for _, blob := range m.blobs {
-		all = append(all, blob)
+		if blob.Size > 0 {
+			all = append(all, blob)
+		}
 	}
 
 	sort.Sort(byHash(all))
