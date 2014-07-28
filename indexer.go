@@ -119,17 +119,17 @@ func (i *Indexer) index(pe *fs.PathElem) {
 		return
 	}
 
+	var action string = "indexing"
 	if previous != nil {
 		var size int64 = pe.Info.Size()
 		var mtime time.Time = pe.Info.ModTime()
 		if !previous.HasChanged(size, mtime) {
-			//i.logf("INFO: index up to date for %q", pe.Path)
 			return
 		}
-		i.logf("INFO: file in index but changed, reindexing %q", pe.Path)
+		action = "updating"
 	}
 
-	i.logf("INFO: indexing %q", pe.Path)
+	i.logf("INFO: %s %q", action, pe.Path)
 
 	indexed, err := IndexFile(pe.Path, genConfig(previous))
 	if err != nil {
