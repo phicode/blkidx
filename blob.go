@@ -79,3 +79,27 @@ func (b *Blob) CheckOptimisticLock(update *Blob) error {
 func (b *Blob) EqualHash(other *Blob) bool {
 	return bytes.Equal(b.Hash, other.Hash)
 }
+
+type EqualBlobs struct {
+	Names Names
+	Size  int64
+}
+
+func (e *EqualBlobs) Append(blob *Blob) {
+	e.Names = append(e.Names, blob.Name)
+	e.Size = blob.Size
+}
+
+func (e *EqualBlobs) AppendRaw(name string, size int64) {
+	e.Names = append(e.Names, name)
+	e.Size = size
+}
+
+func (e *EqualBlobs) ContainsAnyName(names map[string]struct{}) bool {
+	for _, n := range e.Names {
+		if _, found := names[n]; found {
+			return true
+		}
+	}
+	return false
+}

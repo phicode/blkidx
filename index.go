@@ -17,7 +17,7 @@ type Index interface {
 	// the error return value is indicative of problems with the underlying storage strategy.
 	LookupByName(name string) (*Blob, error)
 
-	FindEqualHashes() ([]EqualsBlobs, error)
+	FindEqualHashes() ([]EqualBlobs, error)
 
 	AllNames() (Names, error)
 
@@ -29,21 +29,6 @@ type Index interface {
 type Names []string
 
 func (n Names) Sort() { sort.Strings([]string(n)) }
-
-type EqualsBlobs struct {
-	Names Names
-	Size  int64
-}
-
-func (e *EqualsBlobs) Append(blob *Blob) {
-	e.Names = append(e.Names, blob.Name)
-	e.Size = blob.Size
-}
-
-func (e *EqualsBlobs) AppendRaw(name string, size int64) {
-	e.Names = append(e.Names, name)
-	e.Size = size
-}
 
 type OptimisticLockingError struct {
 	Name          string
@@ -79,7 +64,7 @@ func (i *LockedIndex) LookupByName(name string) (*Blob, error) {
 	return i.Backend.LookupByName(name)
 }
 
-func (i *LockedIndex) FindEqualHashes() ([]EqualsBlobs, error) {
+func (i *LockedIndex) FindEqualHashes() ([]EqualBlobs, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 

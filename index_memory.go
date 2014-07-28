@@ -43,7 +43,7 @@ func (m *memoryIndex) LookupByName(name string) (*Blob, error) {
 	return m.blobs[name], nil
 }
 
-func (m *memoryIndex) FindEqualHashes() (rv []EqualsBlobs, err error) {
+func (m *memoryIndex) FindEqualHashes() (rv []EqualBlobs, err error) {
 	m.rwmu.RLock()
 	defer m.rwmu.RUnlock()
 
@@ -62,7 +62,7 @@ func (m *memoryIndex) FindEqualHashes() (rv []EqualsBlobs, err error) {
 
 	i := 0
 	for i+1 < len(all) {
-		var equal EqualsBlobs
+		var equal EqualBlobs
 		if all[i].EqualHash(all[i+1]) {
 			equal.Append(all[i])
 			equal.Append(all[i+1])

@@ -19,8 +19,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// TODO: paths for dups and rm-dups
-
 var (
 	flagDb          *string
 	flagConcurrency = flag.Int("c", 1, "concurrency")
@@ -54,10 +52,10 @@ commands:
   list-missing [path...]     list only files that are in the index
                              but not on the filesystem.
 
-  dups                       show all files in the index which
+  dups [path...]             show all files in the index which
                              have the same checksums.
 
-  rm-dups                    interactive duplicate removal.
+  rm-dups [path...]          interactive duplicate removal.
 
 
 options:
@@ -121,10 +119,10 @@ func run(args []string, dbUrl string) (found bool, err error) {
 		err = listMissing(idx, paths)
 
 	case "dups":
-		err = dups(idx, false)
+		err = dups(idx, paths, false)
 
 	case "rm-dups":
-		err = dups(idx, true)
+		err = dups(idx, paths, true)
 
 	default:
 		return false, nil
@@ -247,11 +245,12 @@ func getMissing(idx Index, paths fs.Paths, present fs.Paths) (fs.Paths, error) {
 	return missing, nil
 }
 
-func dups(idx Index, rm bool) error {
+func dups(idx Index, paths fs.Paths, rm bool) error {
 	equalBlobs, err := idx.FindEqualHashes()
 	if err != nil {
 		return fmt.Errorf("find duplicates failed:", err)
 	}
+	equalBlobs = reduceEqualBlobs(equalBlobs, findAllFiles(paths))
 	if len(equalBlobs) == 0 {
 		fmt.Println("no duplicates found")
 		return nil
@@ -284,7 +283,7 @@ func dups(idx Index, rm bool) error {
 	return nil
 }
 
-func askRemove(idx Index, equal EqualsBlobs) (int, error) {
+func askRemove(idx Index, equal EqualBlobs) (int, error) {
 	r := bufio.NewReader(os.Stdin)
 
 	fmt.Println(`enter space-separated file indexes to delete or enter to delete-nothing
@@ -336,6 +335,16 @@ func readIntFieldsLine(r *bufio.Reader, offset int) ([]int, error) {
 func findAllFiles(paths fs.Paths) fs.Paths {
 	c := fs.WalkFiles(paths)
 	return fs.AggregateLogErrors(c, logger)
+}
+
+func reduceEqualBlobs(ebs []EqualBlobs, filesInPaths fs.Paths) []EqualBlobs {
+	var rv []EqualBlobs
+	for _, eb := range ebs {
+		if eb.ContainsAnyName(filesInPaths) {
+			rv = append(rv, eb)
+		}
+	}
+	return rv
 }
 
 func sizePretty(s int64) string {
