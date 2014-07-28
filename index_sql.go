@@ -11,13 +11,13 @@ import (
 type sqlIndex struct {
 	db *sql.DB
 
-	insertStmt          *sql.Stmt
-	updateStmt          *sql.Stmt
-	lookupStmt          *sql.Stmt
-	findEqualHashesStmt *sql.Stmt
-	allNamesStmt        *sql.Stmt
-	removeStmt          *sql.Stmt
-	countStmt           *sql.Stmt
+	insertStmt      *sql.Stmt
+	updateStmt      *sql.Stmt
+	lookupStmt      *sql.Stmt
+	equalHashesStmt *sql.Stmt
+	allNamesStmt    *sql.Stmt
+	removeStmt      *sql.Stmt
+	countStmt       *sql.Stmt
 }
 
 var _ Index = (*sqlIndex)(nil)
@@ -43,7 +43,7 @@ func NewSqlIndex(db *sql.DB) (Index, error) {
 	if err != nil {
 		return nil, err
 	}
-	idx.findEqualHashesStmt, err = db.Prepare(sqlIndex_findEqualHashes)
+	idx.equalHashesStmt, err = db.Prepare(sqlIndex_equalHashes)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (s *sqlIndex) FindEqualHashes() (rv []EqualsBlobs, err error) {
 	}
 	defer tx.Rollback()
 
-	rows, err := tx.Stmt(s.findEqualHashesStmt).Query()
+	rows, err := tx.Stmt(s.equalHashesStmt).Query()
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ const (
 
 	sqlIndex_lookup = `SELECT ` + sqlIndex_fields + ` FROM t_blobs WHERE name=?`
 
-	sqlIndex_findEqualHashes = `
+	sqlIndex_equalHashes = `
 	SELECT hash, name, size
 	FROM t_blobs
 	WHERE hash IN (
