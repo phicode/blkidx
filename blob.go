@@ -43,8 +43,11 @@ func (b *Blob) Validate() error {
 	if strings.TrimSpace(b.Name) != b.Name {
 		return errors.New("invalid leading or trailing space in name")
 	}
-	if b.IndexTime.IsZero() || b.ModTime.IsZero() {
-		return errors.New("invalid zero index or modify time")
+	if b.IndexTime.IsZero() {
+		return errors.New("invalid zero index time")
+	}
+	if b.ModTime.IsZero() {
+		return errors.New("invalid zero modify time")
 	}
 	if !b.HashAlgorithm.Available() {
 		return errors.New("invalid hash algorithm")
