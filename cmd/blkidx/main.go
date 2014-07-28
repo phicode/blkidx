@@ -2,6 +2,7 @@ package main
 
 import (
 	"bind.ch/blkidx/fs"
+	"bufio"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -52,6 +53,8 @@ commands:
 
   dups                       show all files in the index which
                              have the same checksums.
+
+  rm-dups                    interactive duplicate removal.
 
 
 options:
@@ -115,7 +118,10 @@ func run(args []string, dbUrl string) (found bool, err error) {
 		err = listMissing(idx, paths)
 
 	case "dups":
-		err = dups(idx)
+		err = dups(idx, false)
+
+	case "rm-dups":
+		err = dups(idx, true)
 
 	default:
 		return false, nil
@@ -238,7 +244,7 @@ func getMissing(idx Index, paths fs.Paths, present fs.Paths) (fs.Paths, error) {
 	return missing, nil
 }
 
-func dups(idx Index) error {
+func dups(idx Index, rm bool) error {
 	equalBlobs, err := idx.FindEqualHashes()
 	if err != nil {
 		return fmt.Errorf("find duplicates failed:", err)
@@ -252,15 +258,36 @@ func dups(idx Index) error {
 	separator := strings.Repeat("-", 80)
 	for _, equal := range equalBlobs {
 		fmt.Println(separator)
-		for _, name := range equal.Names {
-			fmt.Println(name)
+		for i, name := range equal.Names {
+			fmt.Printf("%d - %s", (i + 1), name)
 		}
+
+		if rm {
+			if err = askRemove(idx, equal); err != nil {
+				return err
+			}
+		}
+
 		savings += (equal.Size * (int64(len(equal.Names) - 1)))
 	}
-
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "removing all duplicates would save", sizePretty(savings))
+	if !rm {
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "removing all duplicates would save", sizePretty(savings))
+	}
 	return nil
+}
+
+func askRemove(idx Index, equal EqualsBlobs) error {
+	r := bufio.NewReader(os.Stdin)
+
+	//TODO
+	//idx.Remove(names)
+
+	return nil
+}
+
+func readIndexes(r bufio.Reader) []int {
+	io.readl
 }
 
 func findAllFiles(paths fs.Paths) fs.Paths {
