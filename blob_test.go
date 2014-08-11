@@ -99,7 +99,7 @@ func TestBlobCheckOptimisticLock(t *testing.T) {
 
 func checkIsOptimisticLockingError(t *testing.T, err error) {
 	if err == nil {
-		t.Errorf("want: error for invalid versions, got: nil", err)
+		t.Errorf("want: error for invalid versions, got: nil")
 	}
 	if _, ok := err.(*OptimisticLockingError); !ok {
 		t.Errorf("want: *OptimisticLockingError, got: %#v", err)

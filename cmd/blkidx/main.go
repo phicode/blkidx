@@ -248,7 +248,7 @@ func getMissing(idx Index, paths fs.Paths, present fs.Paths) (fs.Paths, error) {
 func dups(idx Index, paths fs.Paths, rm bool) error {
 	equalBlobs, err := idx.FindEqualHashes()
 	if err != nil {
-		return fmt.Errorf("find duplicates failed:", err)
+		return fmt.Errorf("find duplicates failed: %v", err)
 	}
 	equalBlobs = reduceEqualBlobs(equalBlobs, findAllFiles(paths))
 	if len(equalBlobs) == 0 {
