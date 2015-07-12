@@ -9,7 +9,6 @@ import (
 	"log"
 	"os"
 	"os/user"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -27,8 +26,6 @@ var (
 )
 
 func init() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
 	var db string
 	if user, err := user.Current(); err == nil {
 		db = user.HomeDir + string(os.PathSeparator) + ".blkidx.sqlite3"
