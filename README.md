@@ -8,5 +8,5 @@ after the initial indexing stage duplicate files can be found and removed.
 
 Get **blkidx**:
 
-    go get github.com/PhiCode/blkidx/cmd/blkidx
+    go get github.com/phicode/blkidx/cmd/blkidx
 

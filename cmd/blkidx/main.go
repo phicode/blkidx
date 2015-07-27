@@ -12,9 +12,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/PhiCode/blkidx/fs"
+	"github.com/phicode/blkidx/fs"
 
-	. "github.com/PhiCode/blkidx"
+	. "github.com/phicode/blkidx"
 
 	_ "github.com/mattn/go-sqlite3"
 )
