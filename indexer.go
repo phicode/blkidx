@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"bind.ch/blkidx/fs"
+	"github.com/phicode/blkidx/fs"
 
 	_ "crypto/sha1"
 	_ "crypto/sha256"

@@ -6,7 +6,7 @@ base=$(dirname "$0")
 base=$(readlink -e "$base")
 cd "$base"
 
-root_package="bind.ch/blkidx"
+root_package="github.com/phicode/blkidx"
 cmd_packages="blkidx"
 dependencies="github.com/mattn/go-sqlite3"
 

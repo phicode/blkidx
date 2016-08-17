@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bind.ch/blkidx/fs"
 	"bufio"
 	"database/sql"
 	"flag"
@@ -14,7 +13,8 @@ import (
 	"strconv"
 	"strings"
 
-	. "bind.ch/blkidx"
+	. "github.com/phicode/blkidx"
+	"github.com/phicode/blkidx/fs"
 
 	_ "github.com/mattn/go-sqlite3"
 )
