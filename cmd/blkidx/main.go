@@ -9,12 +9,12 @@ import (
 	"log"
 	"os"
 	"os/user"
-	"runtime"
 	"strconv"
 	"strings"
 
-	. "github.com/phicode/blkidx"
 	"github.com/phicode/blkidx/fs"
+
+	. "github.com/phicode/blkidx"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -26,8 +26,6 @@ var (
 )
 
 func init() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
 	var db string
 	if user, err := user.Current(); err == nil {
 		db = user.HomeDir + string(os.PathSeparator) + ".blkidx.sqlite3"

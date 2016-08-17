@@ -16,7 +16,6 @@ install_flags=""
 if [ $# -ne 0 -a "$1" = "update" ]; then
   # force upgrade packages
   go_get_flags="$go_get_flags -u"
-  install_flags="$install_flags -a"
 fi
 
 rm -rf coverage
