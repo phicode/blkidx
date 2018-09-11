@@ -24,7 +24,7 @@ mkdir -p coverage/{json,html,xml}
 echo "go-getting coverage utilities"
 go get $go_get_flags github.com/axw/gocov/gocov
 go get $go_get_flags github.com/AlekSi/gocov-xml
-go get $go_get_flags gopkg.in/matm/v1/gocov-html
+#go get $go_get_flags github.com/matm/gocov-html
 
 echo "go-getting dependencies"
 for dep in $dependencies; do
@@ -40,7 +40,7 @@ for pkg in $(go list "${root_package}/..."); do
     json="coverage/json/${f}.json"
     gocov convert c.out > "$json"
     gocov-xml  < "$json" > "coverage/xml/${f}.xml"
-    gocov-html < "$json" > "coverage/html/${f}.html"
+    #gocov-html < "$json" > "coverage/html/${f}.html"
     rm -f c.out
   fi
 done
