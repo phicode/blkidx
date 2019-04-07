@@ -274,9 +274,9 @@ func dups(idx Index, paths fs.Paths, rm bool) error {
 	}
 	fmt.Fprintln(os.Stderr)
 	if rm {
-		fmt.Fprintln(os.Stderr, "removed", sizePretty(savings))
+		fmt.Fprintln(os.Stderr, "removed", formatSize(savings))
 	} else {
-		fmt.Fprintln(os.Stderr, "removing all duplicates would save", sizePretty(savings))
+		fmt.Fprintln(os.Stderr, "removing all duplicates would save", formatSize(savings))
 	}
 	return nil
 }
@@ -345,8 +345,8 @@ func reduceEqualBlobs(ebs []EqualBlobs, filesInPaths fs.Paths) []EqualBlobs {
 	return rv
 }
 
-func sizePretty(s int64) string {
-	var o order = orders[0]
+func formatSize(s int64) string {
+	o := orders[0]
 	if s < o.v {
 		return fmt.Sprintf("%d bytes", s)
 	}
@@ -364,7 +364,7 @@ type order struct {
 	s string
 }
 
-var orders = []order{
+var orders = [...]order{
 	{1 << 10, "KiB"},
 	{1 << 20, "MiB"},
 	{1 << 30, "GiB"},
