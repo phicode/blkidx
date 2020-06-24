@@ -287,8 +287,10 @@ func initOrUpgradeDb(db *sql.DB) error {
 	return nil
 }
 
+// sql driver compatible slice of bytes
 type sqlSB []byte
 
+// sql driver compatible slice of slice of bytes
 type sqlSSB [][]byte
 
 var _ sql.Scanner = (*sqlSB)(nil)

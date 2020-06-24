@@ -140,9 +140,12 @@ func openDbIndex(dbUrl string) (Index, io.Closer, error) {
 		db.Close()
 		return nil, nil, err
 	}
+
 	// TODO: get sqlite locking/serialization right so that we do not have to
 	// wrap access the database through a single thread
-	return &LockedIndex{Backend: idx}, db, nil
+	//return &LockedIndex{Backend: idx}, db, nil
+
+	return idx, db, nil
 }
 
 func index(idx Index, paths fs.Paths) {
